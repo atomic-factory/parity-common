@@ -12,6 +12,7 @@ members = [
 	"parity-path",
 	"plain_hasher",
 	"rlp",
+	"rlp-derive",
 	"transaction-pool",
 	"trace-time",
 	"triehash",

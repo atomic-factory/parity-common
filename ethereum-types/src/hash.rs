@@ -3,7 +3,7 @@ use fixed_hash::*;
 use impl_rlp::impl_fixed_hash_rlp;
 #[cfg(feature = "serialize")]
 use impl_serde::impl_fixed_hash_serde;
-use impl_codec::impl_fixe d_hash_codec;
+use impl_codec::impl_fixed_hash_codec;
 
 pub trait BigEndianHash {
 	type Uint;

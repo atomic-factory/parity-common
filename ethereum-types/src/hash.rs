@@ -3,6 +3,7 @@ use fixed_hash::*;
 use impl_rlp::impl_fixed_hash_rlp;
 #[cfg(feature = "serialize")]
 use impl_serde::impl_fixed_hash_serde;
+use impl_codec::impl_fixe d_hash_codec;
 
 pub trait BigEndianHash {
 	type Uint;
@@ -15,16 +16,19 @@ construct_fixed_hash! { pub struct H32(4); }
 impl_fixed_hash_rlp!(H32, 4);
 #[cfg(feature = "serialize")]
 impl_fixed_hash_serde!(H32, 4);
+impl_fixed_hash_codec!(H32, 4);
 
 construct_fixed_hash! { pub struct H64(8); }
 impl_fixed_hash_rlp!(H64, 8);
 #[cfg(feature = "serialize")]
 impl_fixed_hash_serde!(H64, 8);
+impl_fixed_hash_codec!(H64, 8);
 
 construct_fixed_hash! { pub struct H128(16); }
 impl_fixed_hash_rlp!(H128, 16);
 #[cfg(feature = "serialize")]
 impl_fixed_hash_serde!(H128, 16);
+impl_fixed_hash_codec!(H128, 16);
 
 pub use primitive_types::H160;
 pub use primitive_types::H256;

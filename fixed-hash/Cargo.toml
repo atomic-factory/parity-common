@@ -1,8 +1,8 @@
 [package]
 name = "fixed-hash"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Parity Technologies <admin@parity.io>"]
-license = "MIT"
+license = "MIT/Apache2.0"
 homepage = "https://github.com/paritytech/parity-common"
 repository = "https://github.com/paritytech/parity-common"
 description = "Macros to define custom fixed-size hash types"
@@ -22,12 +22,14 @@ static_assertions = "1.0.0"
 
 [dev-dependencies]
 rand_xorshift = "0.2.0"
-
-[target.'cfg(not(target_os = "unknown"))'.dependencies]
-libc = { version = "0.2.65", optional = true, default-features = false }
+criterion = "0.3.0"
 
 [features]
-default = ["std", "libc", "rand", "rustc-hex", "byteorder"]
+default = ["std", "rand", "rustc-hex", "byteorder"]
 std = ["rustc-hex/std", "rand/std", "byteorder/std"]
 
 api-dummy = [] # Feature used by docs.rs to display documentation of hash types
+
+[[bench]]
+name = "cmp"
+harness = false

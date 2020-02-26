@@ -1,33 +1,33 @@
-// Copyright 2015-2019 Parity Technologies (UK) Ltd.
-// This file is part of Parity Ethereum.
+// Copyright 2020 Parity Technologies
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
 
-// Parity Ethereum is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+//! Derive macro for `#[derive(RlpEncodable, RlpDecodable)]`.
+//!
+//! For example of usage see `./tests/rlp.rs`.
+//!
+//! This library also supports up to 1 `#[rlp(default)]` in a struct,
+//! which is similar to [`#[serde(default)]`](https://serde.rs/field-attrs.html#default)
+//! with the caveat that we use the `Default` value if
+//! the field deserialization fails, as we don't serialize field
+//! names and there is no way to tell if it is present or not.
 
-// Parity Ethereum is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Parity Ethereum.  If not, see <http://www.gnu.org/licenses/>.
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 
 extern crate proc_macro;
-extern crate proc_macro2;
-extern crate syn;
-#[macro_use]
-extern crate quote;
 
-mod en;
 mod de;
+mod en;
 
-use proc_macro::TokenStream;
-use en::{impl_encodable, impl_encodable_wrapper};
 use de::{impl_decodable, impl_decodable_wrapper};
+use en::{impl_encodable, impl_encodable_wrapper};
+use proc_macro::TokenStream;
 
-#[proc_macro_derive(RlpEncodable)]
+#[proc_macro_derive(RlpEncodable, attributes(rlp))]
 pub fn encodable(input: TokenStream) -> TokenStream {
 	let ast = syn::parse(input).unwrap();
 	let gen = impl_encodable(&ast);
@@ -41,7 +41,7 @@ pub fn encodable_wrapper(input: TokenStream) -> TokenStream {
 	gen.into()
 }
 
-#[proc_macro_derive(RlpDecodable)]
+#[proc_macro_derive(RlpDecodable, attributes(rlp))]
 pub fn decodable(input: TokenStream) -> TokenStream {
 	let ast = syn::parse(input).unwrap();
 	let gen = impl_decodable(&ast);

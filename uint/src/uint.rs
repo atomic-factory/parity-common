@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Parity Technologies
+// Copyright 2020 Parity Technologies
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -37,6 +37,23 @@ pub enum FromDecStrErr {
 	/// Value does not fit into type
 	InvalidLength,
 }
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for FromDecStrErr {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"{}",
+			match self {
+				FromDecStrErr::InvalidCharacter => "a character is not in the range 0-9",
+				FromDecStrErr::InvalidLength => "the number is too large for the type",
+			}
+		)
+	}
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for FromDecStrErr {}
 
 #[macro_export]
 #[doc(hidden)]
@@ -371,7 +388,7 @@ macro_rules! construct_uint {
 			impl $name {
 				/// Low 2 words (u128)
 				#[inline]
-				pub fn low_u128(&self) -> u128 {
+				pub const fn low_u128(&self) -> u128 {
 					let &$name(ref arr) = self;
 					((arr[1] as u128) << 64) + arr[0] as u128
 				}
@@ -473,14 +490,14 @@ macro_rules! construct_uint {
 
 			/// Conversion to u32
 			#[inline]
-			pub fn low_u32(&self) -> u32 {
+			pub const fn low_u32(&self) -> u32 {
 				let &$name(ref arr) = self;
 				arr[0] as u32
 			}
 
 			/// Low word (u64)
 			#[inline]
-			pub fn low_u64(&self) -> u64 {
+			pub const fn low_u64(&self) -> u64 {
 				let &$name(ref arr) = self;
 				arr[0]
 			}
@@ -560,7 +577,7 @@ macro_rules! construct_uint {
 			///
 			/// Panics if `index` exceeds the bit width of the number.
 			#[inline]
-			pub fn bit(&self, index: usize) -> bool {
+			pub const fn bit(&self, index: usize) -> bool {
 				let &$name(ref arr) = self;
 				arr[index / 64] & (1 << (index % 64)) != 0
 			}
@@ -601,7 +618,7 @@ macro_rules! construct_uint {
 			///
 			/// Panics if `index` exceeds the byte width of the number.
 			#[inline]
-			pub fn byte(&self, index: usize) -> u8 {
+			pub const fn byte(&self, index: usize) -> u8 {
 				let &$name(ref arr) = self;
 				(arr[index / 8] >> (((index % 8)) * 8)) as u8
 			}
@@ -642,8 +659,8 @@ macro_rules! construct_uint {
 
 			/// Zero (additive identity) of this type.
 			#[inline]
-			pub fn zero() -> Self {
-				From::from(0u64)
+			pub const fn zero() -> Self {
+				Self([0; $n_words])
 			}
 
 			/// One (multiplicative identity) of this type.
@@ -1066,18 +1083,18 @@ macro_rules! construct_uint {
 			}
 
 			#[inline(always)]
-			fn mul_u64(a: u64, b: u64, carry: u64) -> (u64, u64) {
-				let (hi, lo) = Self::split_u128(u128::from(a) * u128::from(b) + u128::from(carry));
+			const fn mul_u64(a: u64, b: u64, carry: u64) -> (u64, u64) {
+				let (hi, lo) = Self::split_u128(a as u128 * b as u128 + carry as u128);
 				(lo, hi)
 			}
 
 			#[inline(always)]
-			fn split(a: u64) -> (u64, u64) {
+			const fn split(a: u64) -> (u64, u64) {
 				(a >> 32, a & 0xFFFF_FFFF)
 			}
 
 			#[inline(always)]
-			fn split_u128(a: u128) -> (u64, u64) {
+			const fn split_u128(a: u128) -> (u64, u64) {
 				((a >> 64) as _, (a & 0xFFFFFFFFFFFFFFFF) as _)
 			}
 

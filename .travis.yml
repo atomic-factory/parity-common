@@ -12,8 +12,20 @@ matrix:
       rust: beta
     - os: linux
       rust: nightly
+      script:
+        - cargo check --all --benches
     - os: osx
-      osx_image: xcode11
+      osx_image: xcode11.2
+      addons:
+        chrome: stable
+        firefox: latest
+      install:
+        - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.1/install.sh | sh
+        - source ~/.nvm/nvm.sh
+        - nvm install --lts
+        - npm install -g chromedriver
+        - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        - which chromedriver
       rust: stable
   allow_failures:
     - rust: nightly
@@ -24,8 +36,9 @@ script:
     cargo fmt -- --check;
     fi
   - cargo check --all --tests
+  - cargo check --all --benches
   - cargo build --all
-  - cargo test --all --exclude uint --exclude fixed-hash
+  - cargo test --all --exclude uint --exclude fixed-hash --exclude parity-crypto
   - if [ "$TRAVIS_RUST_VERSION" == "nightly" ]; then
     cd contract-address/ && cargo test --features=external_doc && cd ..;
     fi
@@ -35,12 +48,12 @@ script:
   - cd keccak-hash/ && cargo test --no-default-features && cd ..
   - cd plain_hasher/ && cargo test --no-default-features && cargo check --benches && cd ..
   - cd parity-bytes/ && cargo test --no-default-features && cd ..
+  - cd parity-crypto/ && cargo test --all-features && cd ..
   - cd parity-util-mem/ && cargo test --features=estimate-heapsize && cd ..
   - cd parity-util-mem/ && cargo test --features=jemalloc-global && cd ..
   - cd parity-util-mem/ && cargo test --features=mimalloc-global && cd ..
   - cd parity-util-mem/ && cargo test --no-default-features --features=dlmalloc-global && cd ..
   - cd rlp/ && cargo test --no-default-features && cargo check --benches && cd ..
   - cd triehash/ && cargo check --benches && cd ..
-  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-    cd kvdb-web/ && wasm-pack test --headless --chrome --firefox && cd ..;
-    fi
+  - cd kvdb-web/ && wasm-pack test --headless --firefox && cd ..
+

@@ -1,34 +1,27 @@
-// Copyright 2015-2019 Parity Technologies (UK) Ltd.
-// This file is part of Parity Ethereum.
+// Copyright 2020 Parity Technologies
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
 
-// Parity Ethereum is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Parity Ethereum is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Parity Ethereum.  If not, see <http://www.gnu.org/licenses/>.
-
-use syn;
-use proc_macro2::{TokenStream, Span};
+use proc_macro2::TokenStream;
+use quote::quote;
 
 pub fn impl_encodable(ast: &syn::DeriveInput) -> TokenStream {
-	let body = match ast.data {
-		syn::Data::Struct(ref s) => s,
-		_ => panic!("#[derive(RlpEncodable)] is only defined for structs."),
+	let body = if let syn::Data::Struct(s) = &ast.data {
+		s
+	} else {
+		panic!("#[derive(RlpEncodable)] is only defined for structs.");
 	};
 
-	let stmts: Vec<_> = body.fields.iter().enumerate().map(encodable_field_map).collect();
+	let stmts: Vec<_> = body.fields.iter().enumerate().map(|(i, field)| encodable_field(i, field)).collect();
 	let name = &ast.ident;
 
 	let stmts_len = stmts.len();
 	let stmts_len = quote! { #stmts_len };
-	let dummy_const = syn::Ident::new(&format!("_IMPL_RLP_ENCODABLE_FOR_{}", name), Span::call_site());
+
 	let impl_block = quote! {
 		impl rlp::Encodable for #name {
 			fn rlp_append(&self, stream: &mut rlp::RlpStream) {
@@ -39,8 +32,7 @@ pub fn impl_encodable(ast: &syn::DeriveInput) -> TokenStream {
 	};
 
 	quote! {
-		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
-		const #dummy_const: () = {
+		const _: () = {
 			extern crate rlp;
 			#impl_block
 		};
@@ -48,9 +40,10 @@ pub fn impl_encodable(ast: &syn::DeriveInput) -> TokenStream {
 }
 
 pub fn impl_encodable_wrapper(ast: &syn::DeriveInput) -> TokenStream {
-	let body = match ast.data {
-		syn::Data::Struct(ref s) => s,
-		_ => panic!("#[derive(RlpEncodableWrapper)] is only defined for structs."),
+	let body = if let syn::Data::Struct(s) = &ast.data {
+		s
+	} else {
+		panic!("#[derive(RlpEncodableWrapper)] is only defined for structs.");
 	};
 
 	let stmt = {
@@ -65,7 +58,6 @@ pub fn impl_encodable_wrapper(ast: &syn::DeriveInput) -> TokenStream {
 
 	let name = &ast.ident;
 
-	let dummy_const = syn::Ident::new(&format!("_IMPL_RLP_ENCODABLE_FOR_{}", name), Span::call_site());
 	let impl_block = quote! {
 		impl rlp::Encodable for #name {
 			fn rlp_append(&self, stream: &mut rlp::RlpStream) {
@@ -75,49 +67,45 @@ pub fn impl_encodable_wrapper(ast: &syn::DeriveInput) -> TokenStream {
 	};
 
 	quote! {
-		#[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
-		const #dummy_const: () = {
+		const _: () = {
 			extern crate rlp;
 			#impl_block
 		};
 	}
 }
 
-fn encodable_field_map(tuple: (usize, &syn::Field)) -> TokenStream {
-	encodable_field(tuple.0, tuple.1)
-}
-
 fn encodable_field(index: usize, field: &syn::Field) -> TokenStream {
-	let ident = match field.ident {
-		Some(ref ident) => quote! { #ident },
-		None => {
-			let index: syn::Index = index.into();
-			quote! { #index }
-		}
+	let ident = if let Some(ident) = &field.ident {
+		quote! { #ident }
+	} else {
+		let index = syn::Index::from(index);
+		quote! { #index }
 	};
 
 	let id = quote! { self.#ident };
 
-	match field.ty {
-		syn::Type::Path(ref path) => {
-			let top_segment = path.path.segments.first().expect("there must be at least 1 segment");
-			let ident = &top_segment.value().ident;
-			if &ident.to_string() == "Vec" {
-				let inner_ident = match top_segment.value().arguments {
-					syn::PathArguments::AngleBracketed(ref angle) => {
-						let ty = angle.args.first().expect("Vec has only one angle bracketed type; qed");
-						match **ty.value() {
-							syn::GenericArgument::Type(syn::Type::Path(ref path)) => &path.path.segments.first().expect("there must be at least 1 segment").value().ident,
-							_ => panic!("rlp_derive not supported"),
-						}
-					},
-					_ => unreachable!("Vec has only one angle bracketed type; qed"),
-				};
-				quote! { stream.append_list::<#inner_ident, _>(&#id); }
-			} else {
-				quote! { stream.append(&#id); }
-			}
-		},
-		_ => panic!("rlp_derive not supported"),
+	if let syn::Type::Path(path) = &field.ty {
+		let top_segment = path.path.segments.first().expect("there must be at least 1 segment");
+		let ident = &top_segment.ident;
+		if ident == "Vec" {
+			let inner_ident = {
+				if let syn::PathArguments::AngleBracketed(angle) = &top_segment.arguments {
+					if let syn::GenericArgument::Type(syn::Type::Path(path)) =
+						angle.args.first().expect("Vec has only one angle bracketed type; qed")
+					{
+						&path.path.segments.first().expect("there must be at least 1 segment").ident
+					} else {
+						panic!("rlp_derive not supported");
+					}
+				} else {
+					unreachable!("Vec has only one angle bracketed type; qed")
+				}
+			};
+			quote! { stream.append_list::<#inner_ident, _>(&#id); }
+		} else {
+			quote! { stream.append(&#id); }
+		}
+	} else {
+		panic!("rlp_derive not supported");
 	}
 }

@@ -1,18 +1,10 @@
-// Copyright 2019 Parity Technologies (UK) Ltd.
-// This file is part of Parity.
-
-// Parity is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Parity is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Parity.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright 2020 Parity Technologies
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
 
 //! A key-value database for use in browsers
 //!
@@ -45,12 +37,8 @@ pub struct Database {
 	indexed_db: SendWrapper<IdbDatabase>,
 }
 
-// The default column is represented as `None`.
-type Column = Option<u32>;
-
-fn number_to_column(col: u32) -> Column {
-	col.checked_sub(1)
-}
+// TODO: implement when web-based implementation need memory stats
+parity_util_mem::malloc_size_of_is_0!(Database);
 
 impl Database {
 	/// Opens the database with the given name,
@@ -76,10 +64,9 @@ impl Database {
 		let indexed_db::IndexedDB { version, inner, .. } = db;
 		let in_memory = in_memory::create(columns);
 		// read the columns from the IndexedDB
-		for n in 0..=columns {
-			let column = number_to_column(n);
+		for column in 0..columns {
 			let mut txn = DBTransaction::new();
-			let mut stream = indexed_db::idb_cursor(&*inner, n);
+			let mut stream = indexed_db::idb_cursor(&*inner, column);
 			while let Some((key, value)) = stream.next().await {
 				txn.put_vec(column, key.as_ref(), value);
 			}
@@ -107,11 +94,11 @@ impl Drop for Database {
 }
 
 impl KeyValueDB for Database {
-	fn get(&self, col: Option<u32>, key: &[u8]) -> io::Result<Option<DBValue>> {
+	fn get(&self, col: u32, key: &[u8]) -> io::Result<Option<DBValue>> {
 		self.in_memory.get(col, key)
 	}
 
-	fn get_by_prefix(&self, col: Option<u32>, prefix: &[u8]) -> Option<Box<[u8]>> {
+	fn get_by_prefix(&self, col: u32, prefix: &[u8]) -> Option<Box<[u8]>> {
 		self.in_memory.get_by_prefix(col, prefix)
 	}
 
@@ -125,14 +112,14 @@ impl KeyValueDB for Database {
 	}
 
 	// NOTE: clones the whole db
-	fn iter<'a>(&'a self, col: Option<u32>) -> Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a> {
+	fn iter<'a>(&'a self, col: u32) -> Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a> {
 		self.in_memory.iter(col)
 	}
 
 	// NOTE: clones the whole db
 	fn iter_from_prefix<'a>(
 		&'a self,
-		col: Option<u32>,
+		col: u32,
 		prefix: &'a [u8],
 	) -> Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a> {
 		self.in_memory.iter_from_prefix(col, prefix)

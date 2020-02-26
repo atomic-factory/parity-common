@@ -1,59 +1,71 @@
-// Copyright 2015-2019 Parity Technologies (UK) Ltd.
-// This file is part of Parity Ethereum.
+// Copyright 2020 Parity Technologies
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
 
-// Parity Ethereum is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Parity Ethereum is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Parity Ethereum.  If not, see <http://www.gnu.org/licenses/>.
-
-extern crate rlp;
-#[macro_use]
-extern crate rlp_derive;
-
-use rlp::{encode, decode};
+use rlp::{decode, encode};
+use rlp_derive::{RlpDecodable, RlpDecodableWrapper, RlpEncodable, RlpEncodableWrapper};
 
 #[derive(Debug, PartialEq, RlpEncodable, RlpDecodable)]
-struct Foo {
+struct Item {
 	a: String,
 }
 
 #[derive(Debug, PartialEq, RlpEncodableWrapper, RlpDecodableWrapper)]
-struct FooWrapper {
+struct ItemWrapper {
 	a: String,
 }
 
 #[test]
-fn test_encode_foo() {
-	let foo = Foo {
-		a: "cat".into(),
-	};
+fn test_encode_item() {
+	let item = Item { a: "cat".into() };
 
 	let expected = vec![0xc4, 0x83, b'c', b'a', b't'];
-	let out = encode(&foo);
+	let out = encode(&item);
 	assert_eq!(out, expected);
 
 	let decoded = decode(&expected).expect("decode failure");
-	assert_eq!(foo, decoded);
+	assert_eq!(item, decoded);
 }
 
 #[test]
-fn test_encode_foo_wrapper() {
-	let foo = FooWrapper {
-		a: "cat".into(),
-	};
+fn test_encode_item_wrapper() {
+	let item = ItemWrapper { a: "cat".into() };
 
 	let expected = vec![0x83, b'c', b'a', b't'];
-	let out = encode(&foo);
+	let out = encode(&item);
 	assert_eq!(out, expected);
 
 	let decoded = decode(&expected).expect("decode failure");
-	assert_eq!(foo, decoded);
+	assert_eq!(item, decoded);
+}
+
+#[test]
+fn test_encode_item_default() {
+	#[derive(Debug, PartialEq, RlpEncodable, RlpDecodable)]
+	struct ItemDefault {
+		a: String,
+		/// It works with other attributes.
+		#[rlp(default)]
+		b: Option<Vec<u8>>,
+	}
+
+	let attack_of = "clones";
+	let item = Item { a: attack_of.into() };
+
+	let expected = vec![0xc7, 0x86, b'c', b'l', b'o', b'n', b'e', b's'];
+	let out = encode(&item);
+	assert_eq!(out, expected);
+
+	let item_default = ItemDefault { a: attack_of.into(), b: None };
+
+	let decoded = decode(&expected).expect("default failure");
+	assert_eq!(item_default, decoded);
+
+	let item_some = ItemDefault { a: attack_of.into(), b: Some(vec![1, 2, 3]) };
+	let out = encode(&item_some);
+	assert_eq!(decode(&out), Ok(item_some));
 }
